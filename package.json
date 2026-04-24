@@ -1,0 +1,25 @@
+{
+  "name": "him-home-incident-manager",
+  "version": "0.2.1",
+  "description": "HIM — Home Incident Manager. AI-powered home ops incident management (Claude / OpenAI / Ollama / Gemini).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": ["home-automation", "incident-management", "ai", "claude", "ollama", "self-hosted"],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/80willpower08/home-incident-manager.git"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "ws": "^8.20.0"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.env
+*.db
+*.db-shm
+*.db-wal
+.git
+.gitignore
+homeassistant
+DEPLOY.md
+.dockerignore
+docker-compose.yml

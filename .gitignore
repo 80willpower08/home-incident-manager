@@ -1,0 +1,40 @@
+# ─── Secrets / local config ───
+.env
+.env.local
+.env.*.local
+
+# ─── Runtime state ───
+data/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# ─── Dependencies ───
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Build output / caches ───
+dist/
+build/
+.cache/
+.npm/
+
+# ─── OS junk ───
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Editor ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Local experiments / scratch ───
+/tmp/
+scratch/
+*.local.*

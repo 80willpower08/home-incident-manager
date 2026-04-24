@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Incident Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root, [data-theme="dark"]{
+  --bg-base:#0d1117;
+  --bg-surface:#161b22;
+  --bg-elevated:#1c2333;
+  --bg-overlay:#21273a;
+  --border:#30363d;
+  --border-active:#58a6ff;
+  --text-primary:#e6edf3;
+  --text-secondary:#8b949e;
+  --text-muted:#484f58;
+  --accent-blue:#58a6ff;
+  --accent-cyan:#39d2c0;
+  --accent-green:#3fb950;
+  --accent-yellow:#d29922;
+  --accent-orange:#db6d28;
+  --accent-red:#f85149;
+  --accent-purple:#bc8cff;
+  --accent-pink:#f778ba;
+  --sev-low:#3fb950;
+  --sev-medium:#d29922;
+  --sev-high:#db6d28;
+  --sev-critical:#f85149;
+  --stat-new:#58a6ff;
+  --stat-evaluating:#bc8cff;
+  --stat-recommended:#d29922;
+  --stat-approved:#39d2c0;
+  --stat-in_progress:#58a6ff;
+  --stat-resolved:#3fb950;
+  --stat-escalated:#f85149;
+  --stat-denied:#484f58;
+  --noise-opacity:0.04;
+  --radius:6px;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-sans:'DM Sans',system-ui,sans-serif;
+  --noise:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+[data-theme="light"]{
+  --bg-base:#f6f8fa;
+  --bg-surface:#ffffff;
+  --bg-elevated:#f1f3f5;
+  --bg-overlay:#e9ecef;
+  --border:#d0d7de;
+  --border-active:#0969da;
+  --text-primary:#1f2328;
+  --text-secondary:#57606a;
+  --text-muted:#8c959f;
+  --accent-blue:#0969da;
+  --accent-cyan:#1b7c83;
+  --accent-green:#1a7f37;
+  --accent-yellow:#9a6700;
+  --accent-orange:#bc4c00;
+  --accent-red:#cf222e;
+  --accent-purple:#8250df;
+  --accent-pink:#bf3989;
+  --sev-low:#1a7f37;
+  --sev-medium:#9a6700;
+  --sev-high:#bc4c00;
+  --sev-critical:#cf222e;
+  --stat-new:#0969da;
+  --stat-evaluating:#8250df;
+  --stat-recommended:#9a6700;
+  --stat-approved:#1b7c83;
+  --stat-in_progress:#0969da;
+  --stat-resolved:#1a7f37;
+  --stat-escalated:#cf222e;
+  --stat-denied:#8c959f;
+  --noise-opacity:0;
+}
+html{font-size:14px}
+body{
+  font-family:var(--font-sans);
+  background:var(--bg-base);
+  color:var(--text-primary);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:var(--noise);
+  pointer-events:none;z-index:9999;
+  opacity:var(--noise-opacity);
+  transition:opacity 0.3s;
+}
+
+/* ── Topbar ── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;gap:1rem;
+  padding:0 1.5rem;height:52px;
+  background:var(--bg-surface);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(12px);
+}
+.topbar-logo{
+  font-family:var(--font-mono);font-weight:700;font-size:0.85rem;
+  letter-spacing:0.06em;text-transform:uppercase;
+  color:var(--accent-cyan);
+  display:flex;align-items:center;gap:0.5rem;
+}
+.topbar-logo .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent-cyan);
+  box-shadow:0 0 8px var(--accent-cyan);
+  animation:pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot{
+  0%,100%{opacity:1;box-shadow:0 0 8px var(--accent-cyan)}
+  50%{opacity:0.5;box-shadow:0 0 16px var(--accent-cyan)}
+}
+.topbar-tabs{display:flex;gap:0;margin-left:2rem}
+.topbar-tab{
+  font-family:var(--font-mono);font-size:0.75rem;font-weight:500;
+  letter-spacing:0.05em;text-transform:uppercase;
+  padding:0.6rem 1.2rem;
+  color:var(--text-secondary);
+  background:transparent;border:none;cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:all 0.2s;
+}
+.topbar-tab:hover{color:var(--text-primary)}
+.topbar-tab.active{
+  color:var(--accent-cyan);
+  border-bottom-color:var(--accent-cyan);
+}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:1rem}
+.topbar-time{
+  font-family:var(--font-mono);font-size:0.75rem;
+  color:var(--text-muted);
+}
+.topbar-user{
+  font-family:var(--font-mono);font-size:0.72rem;font-weight:500;
+  padding:4px 10px;border-radius:3px;
+  background:color-mix(in srgb,var(--accent-cyan) 12%,transparent);
+  color:var(--accent-cyan);
+  display:none;
+}
+.topbar-user::before{content:'◆ ';opacity:0.7}
+.topbar-user.is-admin{
+  background:color-mix(in srgb,var(--accent-purple) 15%,transparent);
+  color:var(--accent-purple);
+}
+.topbar-user.is-admin::before{content:'★ '}
+
+.theme-toggle{
+  display:flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:6px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-secondary);cursor:pointer;
+  transition:all 0.15s;
+}
+.theme-toggle:hover{color:var(--text-primary);border-color:var(--text-muted)}
+[data-theme="dark"] .theme-icon-dark{display:none}
+[data-theme="dark"] .theme-icon-light{display:block}
+[data-theme="light"] .theme-icon-dark{display:block}
+[data-theme="light"] .theme-icon-light{display:none}
+html:not([data-theme]) .theme-icon-dark{display:none}
+html:not([data-theme]) .theme-icon-light{display:block}
+
+.auth-gate{
+  display:flex;align-items:center;justify-content:center;
+  min-height:calc(100vh - 52px);padding:2rem;
+}
+.auth-gate-card{
+  max-width:480px;text-align:center;padding:2rem;
+  background:var(--bg-surface);border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.auth-gate-card h2{
+  font-family:var(--font-mono);font-size:1rem;font-weight:600;
+  letter-spacing:0.04em;text-transform:uppercase;
+  color:var(--accent-cyan);margin-bottom:1rem;
+}
+.auth-gate-card p{
+  font-size:0.9rem;color:var(--text-secondary);
+  line-height:1.5;margin-bottom:0.75rem;
+}
+.auth-gate-card .auth-gate-hint{
+  font-size:0.75rem;color:var(--text-muted);
+  font-style:italic;margin-top:1rem;
+}
+
+/* ── Layout ── */
+.view{display:none;padding:1.5rem;animation:fadeUp 0.3s ease}
+.view.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Cards ── */
+.card{
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+.card-header{
+  padding:0.75rem 1rem;
+  border-bottom:1px solid var(--border);
+  font-family:var(--font-mono);font-size:0.7rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text-secondary);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.card-body{padding:1rem}
+
+/* ── Badges ── */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:var(--font-mono);font-size:0.65rem;font-weight:600;
+  letter-spacing:0.04em;text-transform:uppercase;
+  padding:2px 8px;border-radius:3px;
+  background:var(--bg-overlay);
+}
+.badge-sev-low{color:var(--sev-low);border:1px solid color-mix(in srgb,var(--sev-low) 30%,transparent)}
+.badge-sev-medium{color:var(--sev-medium);border:1px solid color-mix(in srgb,var(--sev-medium) 30%,transparent)}
+.badge-sev-high{color:var(--sev-high);border:1px solid color-mix(in srgb,var(--sev-high) 30%,transparent)}
+.badge-sev-critical{color:var(--sev-critical);border:1px solid color-mix(in srgb,var(--sev-critical) 30%,transparent);animation:badge-pulse 1.5s ease-in-out infinite}
+@keyframes badge-pulse{50%{background:color-mix(in srgb,var(--sev-critical) 15%,transparent)}}
+
+.badge-stat{padding:3px 10px;border-radius:3px}
+.badge-stat-new{color:var(--stat-new);background:color-mix(in srgb,var(--stat-new) 12%,transparent)}
+.badge-stat-evaluating{color:var(--stat-evaluating);background:color-mix(in srgb,var(--stat-evaluating) 12%,transparent)}
+.badge-stat-recommended{color:var(--stat-recommended);background:color-mix(in srgb,var(--stat-recommended) 12%,transparent)}
+.badge-stat-approved{color:var(--stat-approved);background:color-mix(in srgb,var(--stat-approved) 12%,transparent)}
+.badge-stat-in_progress{color:var(--stat-in_progress);background:color-mix(in srgb,var(--stat-in_progress) 12%,transparent)}
+.badge-stat-resolved{color:var(--stat-resolved);background:color-mix(in srgb,var(--stat-resolved) 12%,transparent)}
+.badge-stat-escalated{color:var(--stat-escalated);background:color-mix(in srgb,var(--stat-escalated) 12%,transparent)}
+.badge-stat-denied{color:var(--stat-denied);background:color-mix(in srgb,var(--stat-denied) 12%,transparent)}
+
+.badge-type{
+  font-size:0.6rem;padding:2px 6px;border-radius:2px;
+  color:var(--accent-purple);
+  background:color-mix(in srgb,var(--accent-purple) 10%,transparent);
+}
+
+/* ── Forms ── */
+.form-group{margin-bottom:1rem}
+.form-label{
+  display:block;margin-bottom:0.35rem;
+  font-family:var(--font-mono);font-size:0.7rem;font-weight:600;
+  letter-spacing:0.06em;text-transform:uppercase;
+  color:var(--text-secondary);
+}
+.form-input,.form-select,.form-textarea{
+  width:100%;padding:0.6rem 0.75rem;
+  background:var(--bg-base);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  color:var(--text-primary);
+  font-family:var(--font-sans);font-size:0.9rem;
+  transition:border-color 0.2s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{
+  outline:none;border-color:var(--accent-cyan);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-cyan) 15%,transparent);
+}
+.form-textarea{resize:vertical;min-height:80px;font-family:var(--font-sans)}
+.form-select{cursor:pointer}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem}
+@media(max-width:640px){.form-row{grid-template-columns:1fr}}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;gap:0.4rem;
+  padding:0.5rem 1rem;border:none;border-radius:var(--radius);
+  font-family:var(--font-mono);font-size:0.75rem;font-weight:600;
+  letter-spacing:0.04em;text-transform:uppercase;
+  cursor:pointer;transition:all 0.15s;
+}
+.btn-primary{background:var(--accent-cyan);color:var(--bg-base)}
+.btn-primary:hover{background:color-mix(in srgb,var(--accent-cyan) 85%,white);transform:translateY(-1px)}
+.btn-success{background:var(--accent-green);color:var(--bg-base)}
+.btn-success:hover{background:color-mix(in srgb,var(--accent-green) 85%,white)}
+.btn-danger{background:transparent;color:var(--accent-red);border:1px solid var(--accent-red)}
+.btn-danger:hover{background:color-mix(in srgb,var(--accent-red) 15%,transparent)}
+.btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text-primary);border-color:var(--text-muted)}
+.btn-sm{padding:0.3rem 0.6rem;font-size:0.65rem}
+
+/* ── Stats Grid ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-card{
+  background:var(--bg-surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1rem;
+  position:relative;overflow:hidden;
+}
+.stat-card::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--accent-cyan);
+}
+.stat-card.stat-warn::after{background:var(--accent-orange)}
+.stat-card.stat-ok::after{background:var(--accent-green)}
+.stat-value{
+  font-family:var(--font-mono);font-size:2rem;font-weight:700;
+  color:var(--text-primary);line-height:1;
+}
+.stat-label{
+  font-family:var(--font-mono);font-size:0.65rem;font-weight:500;
+  letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text-muted);margin-top:0.4rem;
+}
+
+/* ── Incident List / Table ── */
+.incident-list{display:flex;flex-direction:column;gap:1px;background:var(--border)}
+.incident-row{
+  display:grid;
+  grid-template-columns:50px 2fr 1fr 100px 80px 80px 120px 120px;
+  align-items:center;gap:0.75rem;
+  padding:0.65rem 1rem;
+  background:var(--bg-surface);
+  cursor:pointer;transition:background 0.15s;
+  font-size:0.85rem;
+}
+.incident-submitter{
+  font-family:var(--font-mono);font-size:0.72rem;
+  color:var(--text-secondary);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.incident-row:hover{background:var(--bg-elevated)}
+.incident-row.header{
+  font-family:var(--font-mono);font-size:0.65rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text-muted);cursor:default;
+  position:sticky;top:0;z-index:2;
+}
+.incident-row.header:hover{background:var(--bg-surface)}
+.incident-id{font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted)}
+.incident-title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.incident-time{font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)}
+
+/* User view simplified rows */
+.user-incident-row{
+  display:grid;
+  grid-template-columns:2fr 100px 80px 120px 120px;
+  align-items:center;gap:0.75rem;
+  padding:0.65rem 1rem;
+  background:var(--bg-surface);
+  cursor:pointer;transition:background 0.15s;
+  font-size:0.85rem;
+}
+.user-incident-row:hover{background:var(--bg-elevated)}
+.user-incident-row.header{
+  font-family:var(--font-mono);font-size:0.65rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text-muted);cursor:default;
+}
+.user-incident-row.header:hover{background:var(--bg-surface)}
+
+/* ── Filters ── */
+.filters{display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center}
+.filter-select{
+  padding:0.35rem 0.6rem;
+  background:var(--bg-base);border:1px solid var(--border);
+  border-radius:var(--radius);
+  font-family:var(--font-mono);font-size:0.7rem;
+  color:var(--text-secondary);cursor:pointer;
+}
+.filter-select:focus{border-color:var(--accent-cyan);outline:none}
+
+/* ── Modal / Detail ── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:2rem;
+  animation:fadeIn 0.2s ease;
+}
+.modal-overlay.active{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--bg-surface);border:1px solid var(--border);
+  border-radius:var(--radius);
+  width:100%;max-width:680px;max-height:85vh;overflow-y:auto;
+  animation:slideUp 0.25s ease;
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{
+  padding:1rem 1.25rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.modal-header h3{font-family:var(--font-mono);font-size:0.85rem;font-weight:600}
+.modal-close{
+  background:none;border:none;color:var(--text-muted);
+  font-size:1.2rem;cursor:pointer;padding:0.2rem;
+}
+.modal-close:hover{color:var(--text-primary)}
+.modal-body{padding:1.25rem}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem}
+.detail-item label{
+  font-family:var(--font-mono);font-size:0.6rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text-muted);display:block;margin-bottom:0.2rem;
+}
+.detail-item .value{font-size:0.9rem}
+.detail-section{
+  margin-top:1rem;padding-top:1rem;
+  border-top:1px solid var(--border);
+}
+.detail-section h4{
+  font-family:var(--font-mono);font-size:0.7rem;font-weight:600;
+  letter-spacing:0.06em;text-transform:uppercase;
+  color:var(--accent-cyan);margin-bottom:0.5rem;
+}
+.detail-text{
+  font-size:0.85rem;line-height:1.5;color:var(--text-secondary);
+  white-space:pre-wrap;
+}
+.confidence-bar{
+  height:4px;border-radius:2px;background:var(--bg-overlay);
+  margin-top:0.3rem;overflow:hidden;
+}
+.confidence-fill{height:100%;border-radius:2px;transition:width 0.5s ease}
+
+/* ── Settings Toggle ── */
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.75rem}
+.setting-card{
+  background:var(--bg-elevated);border:1px solid var(--border);
+  border-radius:var(--radius);padding:0.75rem 1rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.setting-label{
+  font-family:var(--font-mono);font-size:0.8rem;font-weight:500;
+  text-transform:capitalize;
+}
+.setting-sublabel{font-size:0.7rem;color:var(--text-muted);margin-top:2px}
+.toggle{
+  position:relative;width:48px;height:24px;
+  background:var(--bg-overlay);border:1px solid var(--border);
+  border-radius:12px;cursor:pointer;transition:all 0.2s;
+}
+.toggle.active{background:color-mix(in srgb,var(--accent-cyan) 25%,transparent);border-color:var(--accent-cyan)}
+.toggle::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--text-muted);transition:all 0.2s;
+}
+.toggle.active::after{left:26px;background:var(--accent-cyan)}
+.toggle-labels{
+  display:flex;gap:0.5rem;
+  font-family:var(--font-mono);font-size:0.6rem;
+  color:var(--text-muted);margin-top:4px;
+}
+.toggle-labels span.active-label{color:var(--accent-cyan)}
+
+/* ── Audit Log ── */
+.audit-row{
+  display:grid;grid-template-columns:140px 80px 100px 1fr;
+  gap:0.75rem;padding:0.5rem 1rem;font-size:0.8rem;
+  border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent);
+}
+.audit-row:last-child{border-bottom:none}
+.audit-time{font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)}
+.audit-actor{font-family:var(--font-mono);font-size:0.7rem;color:var(--accent-purple)}
+.audit-action{font-family:var(--font-mono);font-size:0.7rem;color:var(--accent-cyan)}
+.audit-details{color:var(--text-secondary);font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Admin Sub-tabs ── */
+.admin-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.admin-tab{
+  font-family:var(--font-mono);font-size:0.7rem;font-weight:500;
+  letter-spacing:0.05em;text-transform:uppercase;
+  padding:0.6rem 1rem;color:var(--text-muted);
+  background:none;border:none;cursor:pointer;
+  border-bottom:2px solid transparent;transition:all 0.15s;
+}
+.admin-tab:hover{color:var(--text-secondary)}
+.admin-tab.active{color:var(--accent-cyan);border-bottom-color:var(--accent-cyan)}
+.admin-panel{display:none}
+.admin-panel.active{display:block;animation:fadeUp 0.2s ease}
+
+/* ── Toast ── */
+.toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:300;display:flex;flex-direction:column;gap:0.5rem}
+.toast{
+  padding:0.6rem 1rem;border-radius:var(--radius);
+  font-family:var(--font-mono);font-size:0.75rem;
+  background:var(--bg-elevated);border:1px solid var(--border);
+  color:var(--text-primary);
+  animation:slideIn 0.3s ease,fadeOut 0.3s ease 3s forwards;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+.toast.success{border-color:var(--accent-green);color:var(--accent-green)}
+.toast.error{border-color:var(--accent-red);color:var(--accent-red)}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fadeOut{to{opacity:0;transform:translateY(10px)}}
+
+/* ── Empty state ── */
+.empty-state{
+  text-align:center;padding:3rem 1rem;
+  color:var(--text-muted);
+  font-family:var(--font-mono);font-size:0.8rem;
+}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .incident-row{grid-template-columns:40px 1.5fr 80px 70px 100px;font-size:0.8rem}
+  .incident-row > :nth-child(3),.incident-row > :nth-child(4),.incident-row > :nth-child(6){display:none}
+  .user-incident-row{grid-template-columns:1.5fr 80px 70px 100px;font-size:0.8rem}
+  .user-incident-row > :nth-child(4){display:none}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .detail-grid{grid-template-columns:1fr}
+  .audit-row{grid-template-columns:100px 70px 1fr}
+  .audit-row > :nth-child(3){display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <div class="topbar-logo"><span class="dot"></span> HIM</div>
+  <div class="topbar-tabs">
+    <button class="topbar-tab active" data-view="user" onclick="switchView('user')">Report Issue</button>
+    <button class="topbar-tab" id="tab-admin" data-view="admin" onclick="switchView('admin')" style="display:none">Operations</button>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-user" id="topbar-user"></span>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle light/dark">
+      <svg class="theme-icon theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="theme-icon theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <span class="topbar-time" id="topbar-time"></span>
+  </div>
+</div>
+
+<!-- ── Unauthenticated gate ── -->
+<div class="auth-gate" id="auth-gate" style="display:none">
+  <div class="auth-gate-card">
+    <h2>Authentication required</h2>
+    <p>This app is accessed through your Home Assistant dashboard. It looks like you opened it directly.</p>
+    <p>Please use the <strong>Report Issue</strong> or <strong>Incident Ops</strong> dashboards inside Home Assistant.</p>
+    <p class="auth-gate-hint">If you're the admin setting this up, each household member needs a long-lived Home Assistant token. See your notes for the setup recipe.</p>
+  </div>
+</div>
+
+<!-- ═══ USER VIEW ═══ -->
+<div class="view active" id="view-user">
+
+  <!-- Submit Form -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">Submit an Issue</div>
+    <div class="card-body">
+      <form id="incident-form" onsubmit="submitIncident(event)">
+        <div class="form-group">
+          <label class="form-label">What's going on?</label>
+          <input class="form-input" type="text" id="f-title" placeholder="e.g. Can't access amazon.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Details</label>
+          <textarea class="form-textarea" id="f-desc" placeholder="Any extra context — what you were trying to do, error messages, etc."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="f-type" required>
+              <option value="">Loading…</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">How bad is it?</label>
+            <select class="form-select" id="f-severity">
+              <option value="low">Low — Minor annoyance</option>
+              <option value="medium">Medium — Noticeable impact</option>
+              <option value="high">High — Can't do something important</option>
+              <option value="critical">Critical — Everything is down</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">How urgent?</label>
+            <select class="form-select" id="f-urgency">
+              <option value="low">Low — Whenever</option>
+              <option value="medium">Medium — Today please</option>
+              <option value="high">High — Right now</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:center">
+          <button type="submit" class="btn btn-primary">Submit Issue</button>
+          <span id="form-status" style="font-size:0.8rem;color:var(--text-muted)"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- User Incident List -->
+  <div class="card">
+    <div class="card-header">
+      <span>Your Issues</span>
+      <button class="btn btn-ghost btn-sm" onclick="loadUserIncidents()">Refresh</button>
+    </div>
+    <div id="user-incidents">
+      <div class="user-incident-row header">
+        <div>Issue</div>
+        <div>Type</div>
+        <div>Severity</div>
+        <div>Status</div>
+        <div>Submitted</div>
+      </div>
+      <div id="user-incident-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN VIEW ═══ -->
+<div class="view" id="view-admin">
+
+  <!-- Admin Sub-tabs -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchAdminTab('queue')">Queue</button>
+    <button class="admin-tab" onclick="switchAdminTab('dashboard')">Dashboard</button>
+    <button class="admin-tab" onclick="switchAdminTab('settings')">Settings</button>
+    <button class="admin-tab" onclick="switchAdminTab('audit')">Audit Log</button>
+  </div>
+
+  <!-- Queue Panel -->
+  <div class="admin-panel active" id="panel-queue">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="filters">
+        <select class="filter-select" id="filter-status" onchange="loadAdminIncidents()">
+          <option value="">All Status</option>
+          <option value="new">New</option>
+          <option value="evaluating">Evaluating</option>
+          <option value="recommended">Recommended</option>
+          <option value="approved">Approved</option>
+          <option value="in_progress">In Progress</option>
+          <option value="escalated">Escalated</option>
+          <option value="resolved">Resolved</option>
+          <option value="denied">Denied</option>
+        </select>
+        <select class="filter-select" id="filter-type" onchange="loadAdminIncidents()">
+          <option value="">All Types</option>
+          <option value="pihole">Pi-hole</option>
+          <option value="plex">Plex</option>
+          <option value="blueiris">BlueIris</option>
+          <option value="network">Network</option>
+          <option value="smarthome">Smart Home</option>
+          <option value="other">Other</option>
+        </select>
+        <select class="filter-select" id="filter-severity" onchange="loadAdminIncidents()">
+          <option value="">All Severity</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="loadAdminIncidents()">Refresh</button>
+    </div>
+
+    <div class="card">
+      <div class="incident-list">
+        <div class="incident-row header">
+          <div>ID</div>
+          <div>Issue</div>
+          <div>Submitted By</div>
+          <div>Type</div>
+          <div>Severity</div>
+          <div>Urgency</div>
+          <div>Status</div>
+          <div>Time</div>
+        </div>
+        <div id="admin-incident-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Panel -->
+  <div class="admin-panel" id="panel-dashboard">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="card">
+        <div class="card-header">By Type</div>
+        <div class="card-body" id="chart-type"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">By Status</div>
+        <div class="card-body" id="chart-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="admin-panel" id="panel-settings">
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-header">Automation Mode</div>
+      <div class="card-body">
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+          Toggle each incident type between <strong style="color:var(--accent-cyan)">Recommend</strong> (Claude suggests, you approve) and <strong style="color:var(--accent-green)">Auto</strong> (Claude acts on high-confidence decisions).
+        </p>
+        <div class="settings-grid" id="settings-modes"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-header">Notification Targets</div>
+      <div class="card-body">
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+          Set the Home Assistant <code>notify.X</code> service name for each household member — this is where their resolution/denial notifications go. Find service names in HA <strong>Developer Tools → Services</strong> (search for <code>notify</code>). Admin events use the <code>HA_NOTIFY_ADMIN</code> env var.
+        </p>
+        <div id="notify-admin-status" style="font-size:0.8rem;margin-bottom:1rem"></div>
+        <div id="notify-targets-list"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-header">
+        <span>Categories</span>
+        <button class="btn btn-ghost btn-sm" onclick="openCategoryEditor(null)">+ Add Category</button>
+      </div>
+      <div class="card-body">
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+          Incident types available in the Submit form. Add new ones for anything your setup needs (UPS, NAS, media requests, home automation, etc.). Deactivate instead of deleting if incidents already reference the category.
+        </p>
+        <div id="categories-list"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span>Policies</span>
+        <button class="btn btn-ghost btn-sm" onclick="openPolicyEditor(null)">+ Add Policy</button>
+      </div>
+      <div class="card-body">
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+          Markdown policy documents that guide the AI's decision-making. The AI receives enabled policies for the relevant category as part of its evaluation prompt.
+        </p>
+        <div id="policies-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Editor Modal -->
+  <div class="modal-overlay" id="category-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="category-modal-title">Add Category</h3>
+        <button class="modal-close" onclick="closeCategoryModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Key (identifier — lowercase, no spaces)</label>
+          <input class="form-input" type="text" id="cat-key" placeholder="e.g. ups, nas, media_request">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Label (shown in dropdown)</label>
+          <input class="form-input" type="text" id="cat-label" placeholder="e.g. UPS Battery">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="cat-description" placeholder="When to use this category..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Service Module (optional)</label>
+            <select class="form-select" id="cat-service">
+              <option value="">None (generic)</option>
+              <option value="pihole">pihole</option>
+              <option value="plex">plex</option>
+              <option value="blueiris">blueiris</option>
+              <option value="network">network</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sort Order</label>
+            <input class="form-input" type="number" id="cat-sort" value="50">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color (hex)</label>
+            <input class="form-input" type="text" id="cat-color" placeholder="#58a6ff">
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+          <button class="btn btn-ghost" onclick="closeCategoryModal()">Cancel</button>
+          <button class="btn btn-danger" id="cat-delete-btn" onclick="deleteCategory()" style="display:none">Delete</button>
+          <button class="btn btn-primary" onclick="saveCategory()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Policy Editor Modal -->
+  <div class="modal-overlay" id="policy-modal">
+    <div class="modal" style="max-width:900px">
+      <div class="modal-header">
+        <h3 id="policy-modal-title">Add Policy</h3>
+        <button class="modal-close" onclick="closePolicyModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="pol-type"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rule Name (key)</label>
+            <input class="form-input" type="text" id="pol-rule-name" placeholder="e.g. safe_categories">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Auto Action (optional)</label>
+            <input class="form-input" type="text" id="pol-auto-action" placeholder="whitelist, deny, diagnose, escalate">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Short Description (one line)</label>
+          <input class="form-input" type="text" id="pol-description" placeholder="e.g. Auto-approve well-known domains">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Full Policy (markdown — this is what the AI reads)</label>
+          <textarea class="form-textarea" id="pol-content" rows="14" style="font-family:var(--font-mono);font-size:0.8rem;min-height:300px" placeholder="# Policy title
+
+Describe the policy in detail. The AI will read this markdown verbatim when evaluating incidents of this category.
+
+Include:
+- Examples
+- Edge cases
+- Explicit rules
+"></textarea>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;margin-top:1rem">
+          <label style="font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem">
+            <input type="checkbox" id="pol-enabled" checked> Enabled
+          </label>
+          <div style="flex:1"></div>
+          <button class="btn btn-ghost" onclick="closePolicyModal()">Cancel</button>
+          <button class="btn btn-danger" id="pol-delete-btn" onclick="deletePolicy()" style="display:none">Delete</button>
+          <button class="btn btn-primary" onclick="savePolicy()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Panel -->
+  <div class="admin-panel" id="panel-audit">
+    <div class="card">
+      <div class="card-header">
+        <span>Activity Log</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadAuditLog()">Refresh</button>
+      </div>
+      <div id="audit-log-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Incident Detail Modal ── -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Incident Details</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ── Theme ──
+// Resolve theme order: explicit localStorage override → system preference → default dark
+function initTheme() {
+  const saved = localStorage.getItem('him-theme');
+  const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  const theme = saved || (prefersLight ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('him-theme', next);
+}
+initTheme();
+
+// ── Auth ──
+// Token arrives via URL hash (#token=...) from the HA dashboard iframe URL.
+// We cache it in sessionStorage so page reloads inside the iframe keep working.
+let AUTH_TOKEN = null;
+let CURRENT_USER = null;
+
+function parseAuthFromUrl() {
+  const hash = location.hash.replace(/^#/, '');
+  // Support "#admin?token=X" and "#token=X&view=admin" styles
+  let params;
+  if (hash.includes('?')) {
+    params = new URLSearchParams(hash.split('?')[1]);
+  } else {
+    params = new URLSearchParams(hash);
+  }
+  const token = params.get('token');
+  if (token) {
+    sessionStorage.setItem('him-token', token);
+    return token;
+  }
+  return sessionStorage.getItem('him-token');
+}
+
+AUTH_TOKEN = parseAuthFromUrl();
+
+// ── API Helpers ──
+const API = '/api';
+
+async function api(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (AUTH_TOKEN) headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
+  const res = await fetch(`${API}${endpoint}`, {
+    headers,
+    ...options,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+function toast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function timeAgo(dateStr) {
+  const now = new Date();
+  const d = new Date(dateStr + 'Z');
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'Z').toLocaleString();
+}
+
+function sevBadge(sev) {
+  return `<span class="badge badge-sev-${sev}">${sev}</span>`;
+}
+
+function statBadge(status) {
+  const label = status.replace('_', ' ');
+  return `<span class="badge badge-stat badge-stat-${status}">${label}</span>`;
+}
+
+function typeBadge(type) {
+  // Renders using live category metadata (color + label)
+  const cat = CATEGORIES.find(c => c.key === type);
+  const label = cat?.label || type;
+  const color = cat?.color;
+  if (color) {
+    return `<span class="badge" style="color:${color};background:color-mix(in srgb,${color} 12%,transparent)">${esc(label)}</span>`;
+  }
+  return `<span class="badge badge-type">${esc(label)}</span>`;
+}
+
+// ── View Switching ──
+function switchView(view) {
+  // Non-admins cannot reach the admin view
+  if (view === 'admin' && !(CURRENT_USER && CURRENT_USER.is_admin)) {
+    view = 'user';
+  }
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.topbar-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`view-${view}`).classList.add('active');
+  document.querySelector(`.topbar-tab[data-view="${view}"]`).classList.add('active');
+  if (view === 'user') loadUserIncidents();
+  if (view === 'admin') { loadAdminIncidents(); loadStats(); }
+}
+
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.admin-tab[onclick*="${tab}"]`).classList.add('active');
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  if (tab === 'dashboard') loadStats();
+  if (tab === 'settings') { loadSettings(); loadNotifyTargets(); }
+  if (tab === 'audit') loadAuditLog();
+  if (tab === 'queue') loadAdminIncidents();
+}
+
+// ── Submit Incident ──
+async function submitIncident(e) {
+  e.preventDefault();
+  const statusEl = document.getElementById('form-status');
+  statusEl.textContent = 'Submitting...';
+  statusEl.style.color = 'var(--text-muted)';
+
+  try {
+    // submitted_by is auto-filled from the authenticated HA user on the server.
+    const data = {
+      title: document.getElementById('f-title').value,
+      description: document.getElementById('f-desc').value,
+      type: document.getElementById('f-type').value,
+      severity: document.getElementById('f-severity').value,
+      urgency: document.getElementById('f-urgency').value,
+      category: 'incident',
+    };
+
+    await api('/incidents', { method: 'POST', body: JSON.stringify(data) });
+    document.getElementById('incident-form').reset();
+    statusEl.textContent = '';
+    toast('Issue submitted — Claude is reviewing it');
+    loadUserIncidents();
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.style.color = 'var(--accent-red)';
+    toast(err.message, 'error');
+  }
+}
+
+// ── User Incident List ──
+async function loadUserIncidents() {
+  if (!CURRENT_USER) return;
+  try {
+    // Show only the current user's own incidents on this view.
+    // Non-admin requests are auto-scoped server-side; admins need to pass the filter explicitly.
+    const { incidents } = await api(`/incidents?submitted_by=${encodeURIComponent(CURRENT_USER.name)}`);
+    const container = document.getElementById('user-incident-list');
+
+    if (incidents.length === 0) {
+      container.innerHTML = '<div class="empty-state">No issues submitted yet.</div>';
+      return;
+    }
+
+    container.innerHTML = incidents.map(inc => `
+      <div class="user-incident-row" onclick="showDetail(${inc.id})">
+        <div class="incident-title">${esc(inc.title)}</div>
+        <div>${typeBadge(inc.type)}</div>
+        <div>${sevBadge(inc.severity)}</div>
+        <div>${statBadge(inc.status)}</div>
+        <div class="incident-time">${timeAgo(inc.created_at)}</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    toast('Failed to load incidents', 'error');
+  }
+}
+
+// ── Admin Incident List ──
+async function loadAdminIncidents() {
+  try {
+    const params = new URLSearchParams();
+    const status = document.getElementById('filter-status')?.value;
+    const type = document.getElementById('filter-type')?.value;
+    const severity = document.getElementById('filter-severity')?.value;
+    if (status) params.set('status', status);
+    if (type) params.set('type', type);
+    if (severity) params.set('severity', severity);
+
+    const { incidents } = await api(`/incidents?${params}`);
+    const container = document.getElementById('admin-incident-list');
+
+    if (incidents.length === 0) {
+      container.innerHTML = '<div class="empty-state">No incidents match filters.</div>';
+      return;
+    }
+
+    container.innerHTML = incidents.map(inc => `
+      <div class="incident-row" onclick="showDetail(${inc.id}, true)">
+        <div class="incident-id">#${inc.id}</div>
+        <div class="incident-title">${esc(inc.title)}</div>
+        <div class="incident-submitter">${esc(inc.submitted_by || '—')}</div>
+        <div>${typeBadge(inc.type)}</div>
+        <div>${sevBadge(inc.severity)}</div>
+        <div>${sevBadge(inc.urgency)}</div>
+        <div>${statBadge(inc.status)}</div>
+        <div class="incident-time">${timeAgo(inc.created_at)}</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    toast('Failed to load incidents', 'error');
+  }
+}
+
+// ── Incident Detail Modal ──
+async function showDetail(id, isAdmin = false) {
+  try {
+    const { incident: inc, audit } = await api(`/incidents/${id}`);
+
+    document.getElementById('modal-title').textContent = `#${inc.id} — ${inc.title}`;
+
+    let confidenceColor = 'var(--accent-red)';
+    if (inc.claude_confidence >= 0.8) confidenceColor = 'var(--accent-green)';
+    else if (inc.claude_confidence >= 0.5) confidenceColor = 'var(--accent-yellow)';
+
+    let html = `
+      <div class="detail-grid">
+        <div class="detail-item"><label>Status</label><div class="value">${statBadge(inc.status)}</div></div>
+        <div class="detail-item"><label>Type</label><div class="value">${typeBadge(inc.type)}</div></div>
+        <div class="detail-item"><label>Severity</label><div class="value">${sevBadge(inc.severity)}</div></div>
+        <div class="detail-item"><label>Urgency</label><div class="value">${sevBadge(inc.urgency)}</div></div>
+        <div class="detail-item"><label>Submitted by</label><div class="value">${esc(inc.submitted_by)}</div></div>
+        <div class="detail-item"><label>Created</label><div class="value">${formatDate(inc.created_at)}</div></div>
+      </div>
+    `;
+
+    if (inc.description) {
+      html += `<div class="detail-section"><h4>Description</h4><div class="detail-text">${esc(inc.description)}</div></div>`;
+    }
+
+    if (inc.claude_recommendation) {
+      html += `
+        <div class="detail-section">
+          <h4>Claude's Recommendation</h4>
+          <div class="detail-text">${esc(inc.claude_recommendation)}</div>
+          ${inc.claude_confidence != null ? `
+            <div style="margin-top:0.75rem">
+              <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">
+                Confidence: ${Math.round(inc.claude_confidence * 100)}%
+              </span>
+              <div class="confidence-bar">
+                <div class="confidence-fill" style="width:${inc.claude_confidence * 100}%;background:${confidenceColor}"></div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (inc.claude_reasoning) {
+      html += `<div class="detail-section"><h4>Reasoning</h4><div class="detail-text">${esc(inc.claude_reasoning)}</div></div>`;
+    }
+
+    if (inc.resolution_notes) {
+      html += `<div class="detail-section"><h4>Resolution</h4><div class="detail-text">${esc(inc.resolution_notes)}</div></div>`;
+    }
+
+    if (inc.resolved_at) {
+      html += `<div class="detail-section"><h4>Resolved</h4><div class="detail-text">${formatDate(inc.resolved_at)}</div></div>`;
+    }
+
+    // Admin actions - contextual based on incident status
+    if (isAdmin) {
+      const terminalStates = ['resolved', 'denied'];
+      const openStates = ['new', 'evaluating', 'recommended', 'approved', 'in_progress', 'escalated'];
+      const canReevaluate = !['evaluating', 'in_progress'].includes(inc.status);
+
+      html += `<div class="detail-section" style="display:flex;gap:0.5rem;flex-wrap:wrap">`;
+
+      // Approve/Deny only when Claude is waiting for approval
+      if (inc.status === 'recommended') {
+        html += `<button class="btn btn-success" onclick="approveIncident(${inc.id})">Approve Action</button>`;
+        html += `<button class="btn btn-danger" onclick="denyIncident(${inc.id})">Deny</button>`;
+      }
+
+      // Re-evaluate pulls in admin comments + prior recommendations so Claude can reconsider
+      if (canReevaluate) {
+        html += `<button class="btn btn-primary" onclick="reevaluateIncident(${inc.id})">Re-evaluate with Claude</button>`;
+      }
+
+      // Mark Resolved is available whenever the incident is still open
+      if (openStates.includes(inc.status)) {
+        html += `<button class="btn btn-ghost" onclick="closeIncident(${inc.id})">Mark Resolved</button>`;
+      }
+
+      // Reopen is for already-terminal incidents (brings them back into the queue)
+      if (terminalStates.includes(inc.status)) {
+        html += `<button class="btn btn-ghost" onclick="reopenIncident(${inc.id})">Reopen</button>`;
+      }
+
+      html += `</div>`;
+    }
+
+    // Comment box — available to admins AND to submitters on their own incidents
+    // (server enforces that only the submitter or an admin can actually post)
+    const isSubmitter = CURRENT_USER && CURRENT_USER.name === inc.submitted_by;
+    if (isAdmin || isSubmitter) {
+      html += `
+        <div class="detail-section">
+          <h4>Add a note</h4>
+          <textarea class="form-textarea" id="comment-box-${inc.id}" placeholder="${isAdmin ? 'Add context, resolution steps, or anything worth logging…' : 'Add context or clarification for the admin…'}"></textarea>
+          <div style="margin-top:0.5rem">
+            <button class="btn btn-ghost btn-sm" onclick="addComment(${inc.id})">Save Note</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Audit trail — admins see everything; submitters see comments and state transitions on their own incidents
+    if (audit.length > 0 && (isAdmin || isSubmitter)) {
+      // Non-admins get a filtered view — just comments and meaningful state transitions
+      const userVisibleActions = new Set([
+        'created', 'comment', 'approved', 'denied', 'resolved',
+        'manually_closed', 'reopened', 'auto_escalated',
+      ]);
+      const visibleAudit = isAdmin ? audit : audit.filter(a => userVisibleActions.has(a.action));
+
+      if (visibleAudit.length > 0) {
+        html += `<div class="detail-section"><h4>Activity</h4>`;
+        html += visibleAudit.map(a => {
+          const isComment = a.action === 'comment';
+          return `
+            <div style="font-size:0.75rem;padding:0.4rem 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;gap:0.75rem;align-items:center">
+                <span class="audit-time">${formatDate(a.created_at)}</span>
+                <span class="audit-actor">${esc(a.actor)}</span>
+                <span class="audit-action">${esc(a.action)}</span>
+              </div>
+              ${isComment && a.details ? `<div style="margin-top:0.3rem;color:var(--text-secondary);white-space:pre-wrap">${esc(a.details)}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+        html += `</div>`;
+      }
+    }
+
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('detail-modal').classList.add('active');
+  } catch (err) {
+    toast('Failed to load details', 'error');
+  }
+}
+
+function closeModal() {
+  document.getElementById('detail-modal').classList.remove('active');
+}
+
+document.getElementById('detail-modal').addEventListener('click', (e) => {
+  if (e.target.classList.contains('modal-overlay')) closeModal();
+});
+
+// ── Admin Actions ──
+async function approveIncident(id) {
+  try {
+    await api(`/incidents/${id}/approve`, { method: 'POST', body: JSON.stringify({ actor: 'admin' }) });
+    toast('Action approved — executing');
+    closeModal();
+    loadAdminIncidents();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function denyIncident(id) {
+  const reason = prompt('Reason for denial (optional):') || 'Denied by admin';
+  try {
+    await api(`/incidents/${id}/deny`, { method: 'POST', body: JSON.stringify({ actor: 'admin', reason }) });
+    toast('Incident denied');
+    closeModal();
+    loadAdminIncidents();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function closeIncident(id) {
+  const notes = prompt('How was this resolved? (notes for the audit log)');
+  if (notes === null) return; // user hit Cancel
+  try {
+    await api(`/incidents/${id}/close`, { method: 'POST', body: JSON.stringify({ resolution_notes: notes || '' }) });
+    toast('Marked as resolved');
+    closeModal();
+    loadAdminIncidents();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function reopenIncident(id) {
+  const reason = prompt('Reason for reopening / retrying (optional):');
+  if (reason === null) return; // user hit Cancel
+  try {
+    await api(`/incidents/${id}/reopen`, { method: 'POST', body: JSON.stringify({ reason: reason || '' }) });
+    toast('Reopened — re-evaluating with Claude');
+    closeModal();
+    loadAdminIncidents();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// Ask Claude to reconsider, pulling in any unsaved note from the comment box.
+// Typical use: admin reads Claude's recommendation, adds clarifying context in the note
+// box (e.g. a specific domain), clicks Re-evaluate instead of Approve.
+async function reevaluateIncident(id) {
+  const box = document.getElementById(`comment-box-${id}`);
+  const unsavedNote = (box?.value || '').trim();
+
+  let promptText = 'Any additional context for Claude? (optional — will be saved as a note)';
+  if (unsavedNote) {
+    promptText = `Your unsaved note will be included:\n\n"${unsavedNote}"\n\nAdd anything else? (optional)`;
+  }
+  const extra = prompt(promptText);
+  if (extra === null) return; // user hit Cancel
+
+  const comment = [unsavedNote, extra.trim()].filter(Boolean).join('\n\n');
+
+  try {
+    await api(`/incidents/${id}/reevaluate`, {
+      method: 'POST',
+      body: JSON.stringify({ comment, reason: 'Admin requested re-evaluation with context' }),
+    });
+    if (box) box.value = '';
+    toast('Re-evaluating with Claude…');
+    closeModal();
+    loadAdminIncidents();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function addComment(id) {
+  const box = document.getElementById(`comment-box-${id}`);
+  const comment = (box.value || '').trim();
+  if (!comment) { toast('Empty comment', 'error'); return; }
+  try {
+    await api(`/incidents/${id}/comment`, { method: 'POST', body: JSON.stringify({ actor: 'admin', comment }) });
+    toast('Note saved');
+    box.value = '';
+    // Re-render the modal so the new note shows in activity
+    showDetail(id, true);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Stats Dashboard ──
+async function loadStats() {
+  try {
+    const stats = await api('/audit/stats');
+
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card ${stats.openIncidents > 5 ? 'stat-warn' : 'stat-ok'}">
+        <div class="stat-value">${stats.openIncidents}</div>
+        <div class="stat-label">Open Incidents</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.avgResolutionMinutes ? Math.round(stats.avgResolutionMinutes) + 'm' : '—'}</div>
+        <div class="stat-label">Avg Resolution</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.byStatus.find(s => s.status === 'resolved')?.count || 0}</div>
+        <div class="stat-label">Resolved Total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.byStatus.find(s => s.status === 'escalated')?.count || 0}</div>
+        <div class="stat-label">Escalated</div>
+      </div>
+    `;
+
+    // Simple bar charts
+    document.getElementById('chart-type').innerHTML = renderBarChart(stats.byType, 'type', 'count');
+    document.getElementById('chart-status').innerHTML = renderBarChart(stats.byStatus, 'status', 'count');
+  } catch (err) {
+    toast('Failed to load stats', 'error');
+  }
+}
+
+function renderBarChart(data, labelKey, valueKey) {
+  if (!data.length) return '<div class="empty-state">No data yet</div>';
+  const max = Math.max(...data.map(d => d[valueKey]));
+  return data.map(d => {
+    const pct = max > 0 ? (d[valueKey] / max) * 100 : 0;
+    const color = `var(--stat-${d[labelKey]}, var(--accent-cyan))`;
+    return `
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+        <span style="font-family:var(--font-mono);font-size:0.7rem;width:90px;text-align:right;color:var(--text-secondary);text-transform:capitalize">${d[labelKey].replace('_',' ')}</span>
+        <div style="flex:1;height:16px;background:var(--bg-overlay);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width 0.5s ease"></div>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:0.75rem;width:30px;color:var(--text-muted)">${d[valueKey]}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// Client-side cache of categories for rendering labels / dropdowns everywhere
+let CATEGORIES = [];
+
+async function loadCategoriesCache() {
+  try {
+    const { categories } = await api('/categories');
+    CATEGORIES = categories;
+  } catch { CATEGORIES = []; }
+}
+
+function categoryLabel(key) {
+  const cat = CATEGORIES.find(c => c.key === key);
+  return cat?.label || key;
+}
+
+function populateTypeDropdown() {
+  const select = document.getElementById('f-type');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = CATEGORIES.map(c => `<option value="${esc(c.key)}">${esc(c.label)}</option>`).join('');
+  if (currentValue && CATEGORIES.find(c => c.key === currentValue)) select.value = currentValue;
+}
+
+// ── Settings ──
+async function loadSettings() {
+  try {
+    await loadCategoriesCache();
+    const { settings } = await api('/settings');
+
+    document.getElementById('settings-modes').innerHTML = CATEGORIES.map(c => {
+      const isAuto = settings[`mode_${c.key}`] === 'auto';
+      return `
+        <div class="setting-card">
+          <div>
+            <div class="setting-label">${esc(c.label)}</div>
+            <div class="toggle-labels">
+              <span class="${!isAuto ? 'active-label' : ''}">Recommend</span>
+              <span class="${isAuto ? 'active-label' : ''}">Auto</span>
+            </div>
+          </div>
+          <div class="toggle ${isAuto ? 'active' : ''}" onclick="toggleMode('${esc(c.key)}', this)"></div>
+        </div>
+      `;
+    }).join('');
+
+    await loadCategoriesAdmin();
+    await loadPoliciesAdmin();
+  } catch (err) {
+    toast('Failed to load settings', 'error');
+  }
+}
+
+// ── Categories admin ──
+async function loadCategoriesAdmin() {
+  const { categories } = await api('/categories/all');
+  CATEGORIES = categories.filter(c => c.active);
+
+  const list = document.getElementById('categories-list');
+  if (!categories.length) {
+    list.innerHTML = '<div class="empty-state">No categories yet</div>';
+    return;
+  }
+  list.innerHTML = categories.map(c => `
+    <div style="display:grid;grid-template-columns:1.5fr 2fr auto auto;gap:0.75rem;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:0.8rem;color:${c.color || 'var(--accent-cyan)'}">${esc(c.label)}</div>
+        <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted)">${esc(c.key)}${c.service_module ? ' · ' + esc(c.service_module) : ''}${c.active ? '' : ' · INACTIVE'}</div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.description || '')}</div>
+      <button class="btn btn-ghost btn-sm" onclick='openCategoryEditor(${JSON.stringify(c)})'>Edit</button>
+      <div class="toggle ${c.active ? 'active' : ''}" onclick="toggleCategoryActive(${c.id}, ${c.active ? 0 : 1})"></div>
+    </div>
+  `).join('');
+}
+
+function openCategoryEditor(category) {
+  document.getElementById('category-modal-title').textContent = category ? `Edit Category: ${category.label}` : 'Add Category';
+  document.getElementById('cat-key').value = category?.key || '';
+  document.getElementById('cat-key').readOnly = !!category; // key is immutable after creation
+  document.getElementById('cat-label').value = category?.label || '';
+  document.getElementById('cat-description').value = category?.description || '';
+  document.getElementById('cat-service').value = category?.service_module || '';
+  document.getElementById('cat-sort').value = category?.sort_order ?? 50;
+  document.getElementById('cat-color').value = category?.color || '';
+  document.getElementById('cat-delete-btn').style.display = category ? '' : 'none';
+  document.getElementById('cat-delete-btn').dataset.id = category?.id || '';
+  document.getElementById('category-modal').dataset.editingId = category?.id || '';
+  document.getElementById('category-modal').classList.add('active');
+}
+
+function closeCategoryModal() {
+  document.getElementById('category-modal').classList.remove('active');
+}
+
+async function saveCategory() {
+  const id = document.getElementById('category-modal').dataset.editingId;
+  const body = {
+    key: document.getElementById('cat-key').value.trim(),
+    label: document.getElementById('cat-label').value.trim(),
+    description: document.getElementById('cat-description').value.trim(),
+    service_module: document.getElementById('cat-service').value || null,
+    sort_order: Number(document.getElementById('cat-sort').value) || 0,
+    color: document.getElementById('cat-color').value.trim() || null,
+  };
+  try {
+    if (id) {
+      delete body.key; // immutable on update
+      await api(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      toast('Category updated');
+    } else {
+      await api('/categories', { method: 'POST', body: JSON.stringify(body) });
+      toast('Category created');
+    }
+    closeCategoryModal();
+    loadSettings();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function deleteCategory() {
+  const id = document.getElementById('cat-delete-btn').dataset.id;
+  if (!id) return;
+  if (!confirm('Delete this category? This only works if no incidents reference it — otherwise deactivate instead.')) return;
+  try {
+    await api(`/categories/${id}`, { method: 'DELETE' });
+    toast('Category deleted');
+    closeCategoryModal();
+    loadSettings();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function toggleCategoryActive(id, newActive) {
+  try {
+    await api(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify({ active: !!newActive }) });
+    loadSettings();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Policies admin ──
+async function loadPoliciesAdmin() {
+  const { policies } = await api('/settings/policies');
+  const list = document.getElementById('policies-list');
+  if (!policies.length) {
+    list.innerHTML = '<div class="empty-state">No policies defined</div>';
+    return;
+  }
+  // Group by category for readability
+  const byType = {};
+  for (const p of policies) {
+    if (!byType[p.incident_type]) byType[p.incident_type] = [];
+    byType[p.incident_type].push(p);
+  }
+  list.innerHTML = Object.entries(byType).map(([type, items]) => `
+    <div style="margin-bottom:1rem">
+      <div style="font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:0.3rem">${esc(categoryLabel(type))}</div>
+      ${items.map(p => `
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:0.5rem;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border)">
+          <div>
+            <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent-cyan)">${esc(p.rule_name)}</span>
+            ${p.auto_action ? `<span style="font-size:0.65rem;color:var(--text-muted);margin-left:0.4rem">→ ${esc(p.auto_action)}</span>` : ''}
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">${esc(p.rule_description || '')}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick='openPolicyEditor(${JSON.stringify(p)})'>Edit</button>
+          <div class="toggle ${p.enabled ? 'active' : ''}" onclick="togglePolicy(${p.id}, ${p.enabled ? 0 : 1}, this)"></div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function openPolicyEditor(policy) {
+  document.getElementById('policy-modal-title').textContent = policy ? `Edit Policy: ${policy.rule_name}` : 'Add Policy';
+
+  const select = document.getElementById('pol-type');
+  select.innerHTML = CATEGORIES.map(c => `<option value="${esc(c.key)}">${esc(c.label)} (${esc(c.key)})</option>`).join('');
+
+  document.getElementById('pol-type').value = policy?.incident_type || CATEGORIES[0]?.key || '';
+  document.getElementById('pol-rule-name').value = policy?.rule_name || '';
+  document.getElementById('pol-rule-name').readOnly = false;
+  document.getElementById('pol-description').value = policy?.rule_description || '';
+  document.getElementById('pol-content').value = policy?.content_md || '';
+  document.getElementById('pol-auto-action').value = policy?.auto_action || '';
+  document.getElementById('pol-enabled').checked = policy ? !!policy.enabled : true;
+  document.getElementById('pol-delete-btn').style.display = policy ? '' : 'none';
+  document.getElementById('pol-delete-btn').dataset.id = policy?.id || '';
+  document.getElementById('policy-modal').dataset.editingId = policy?.id || '';
+  document.getElementById('policy-modal').classList.add('active');
+}
+
+function closePolicyModal() {
+  document.getElementById('policy-modal').classList.remove('active');
+}
+
+async function savePolicy() {
+  const id = document.getElementById('policy-modal').dataset.editingId;
+  const body = {
+    incident_type: document.getElementById('pol-type').value,
+    rule_name: document.getElementById('pol-rule-name').value.trim(),
+    rule_description: document.getElementById('pol-description').value.trim(),
+    content_md: document.getElementById('pol-content').value,
+    auto_action: document.getElementById('pol-auto-action').value.trim() || null,
+    enabled: document.getElementById('pol-enabled').checked,
+  };
+  if (!body.incident_type || !body.rule_name || !body.rule_description) {
+    toast('Category, rule name, and description are required', 'error');
+    return;
+  }
+  try {
+    if (id) {
+      await api(`/settings/policies/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      toast('Policy updated');
+    } else {
+      await api('/settings/policies', { method: 'POST', body: JSON.stringify(body) });
+      toast('Policy created');
+    }
+    closePolicyModal();
+    loadPoliciesAdmin();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function deletePolicy() {
+  const id = document.getElementById('pol-delete-btn').dataset.id;
+  if (!id) return;
+  if (!confirm('Delete this policy? This cannot be undone.')) return;
+  try {
+    await api(`/settings/policies/${id}`, { method: 'DELETE' });
+    toast('Policy deleted');
+    closePolicyModal();
+    loadPoliciesAdmin();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// Allow clicking the overlay to close modals
+document.getElementById('category-modal').addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) closeCategoryModal();
+});
+document.getElementById('policy-modal').addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) closePolicyModal();
+});
+
+async function toggleMode(type, el) {
+  const isNowAuto = !el.classList.contains('active');
+  const value = isNowAuto ? 'auto' : 'recommend';
+  try {
+    await api(`/settings/mode_${type}`, { method: 'PATCH', body: JSON.stringify({ value, actor: 'admin' }) });
+    el.classList.toggle('active');
+    // Update labels
+    const labels = el.closest('.setting-card').querySelectorAll('.toggle-labels span');
+    labels[0].classList.toggle('active-label', !isNowAuto);
+    labels[1].classList.toggle('active-label', isNowAuto);
+    toast(`${type}: ${value} mode`);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function togglePolicy(id, enabled, el) {
+  try {
+    await api(`/settings/policies/${id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !!enabled }) });
+    el.classList.toggle('active');
+    toast(`Policy ${enabled ? 'enabled' : 'disabled'}`);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Notify Target Management ──
+async function loadNotifyTargets() {
+  try {
+    const { users, admin_target_configured } = await api('/settings/notify-targets');
+
+    const adminStatus = document.getElementById('notify-admin-status');
+    adminStatus.innerHTML = admin_target_configured
+      ? '<span style="color:var(--accent-green)">● Admin target configured (HA_NOTIFY_ADMIN env var)</span>'
+      : '<span style="color:var(--accent-orange)">● Admin target NOT configured — set HA_NOTIFY_ADMIN in TrueNAS env vars</span>';
+
+    const list = document.getElementById('notify-targets-list');
+    if (users.length === 0) {
+      list.innerHTML = '<div class="empty-state" style="padding:1rem 0">No users yet — submit an incident first so the system knows who to notify.</div>';
+      return;
+    }
+
+    list.innerHTML = users.map(u => {
+      const target = u.notify_target || '';
+      const configured = !!u.notify_target;
+      return `
+        <div style="display:grid;grid-template-columns:140px 1fr auto auto;gap:0.5rem;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <div style="font-family:var(--font-mono);font-size:0.8rem">
+            ${esc(u.username)}
+            ${configured ? '<span style="color:var(--accent-green)">●</span>' : '<span style="color:var(--text-muted)">○</span>'}
+          </div>
+          <input type="text" class="form-input" id="notify-input-${esc(u.username)}" value="${esc(target)}"
+                 placeholder="e.g. mobile_app_iphone"
+                 style="padding:0.4rem 0.6rem;font-size:0.8rem;font-family:var(--font-mono)">
+          <button class="btn btn-ghost btn-sm" onclick="saveNotifyTarget('${esc(u.username)}')">Save</button>
+          <button class="btn btn-ghost btn-sm" onclick="testNotifyTarget('${esc(u.username)}')">Test</button>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function saveNotifyTarget(username) {
+  const input = document.getElementById(`notify-input-${username}`);
+  const target = (input.value || '').trim();
+  try {
+    await api(`/settings/notify-targets/${encodeURIComponent(username)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ target }),
+    });
+    toast(target ? `Saved: ${username} → ${target}` : `Cleared target for ${username}`);
+    loadNotifyTargets();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function testNotifyTarget(username) {
+  const input = document.getElementById(`notify-input-${username}`);
+  const target = (input.value || '').trim();
+  if (!target) { toast('Enter a target first', 'error'); return; }
+  try {
+    await api('/settings/notify-test', {
+      method: 'POST',
+      body: JSON.stringify({ target }),
+    });
+    toast(`Test sent to ${target} — check the device`);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Audit Log ──
+async function loadAuditLog() {
+  try {
+    const { logs } = await api('/audit?limit=100');
+    const container = document.getElementById('audit-log-list');
+
+    if (logs.length === 0) {
+      container.innerHTML = '<div class="empty-state">No activity yet</div>';
+      return;
+    }
+
+    container.innerHTML = logs.map(a => `
+      <div class="audit-row">
+        <div class="audit-time">${formatDate(a.created_at)}</div>
+        <div class="audit-actor">${esc(a.actor)}</div>
+        <div class="audit-action">${esc(a.action)}</div>
+        <div class="audit-details">${a.incident_id ? '#' + a.incident_id + ' — ' : ''}${esc(a.details || '')}</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    toast('Failed to load audit log', 'error');
+  }
+}
+
+// ── Helpers ──
+function esc(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Clock ──
+function updateClock() {
+  document.getElementById('topbar-time').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Auth bootstrap ──
+function applyAuthedUI() {
+  const userEl = document.getElementById('topbar-user');
+  const gateEl = document.getElementById('auth-gate');
+  const tabAdminEl = document.getElementById('tab-admin');
+
+  if (!CURRENT_USER) {
+    // Unauthenticated — hide the app, show the gate
+    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+    gateEl.style.display = 'flex';
+    userEl.style.display = 'none';
+    tabAdminEl.style.display = 'none';
+    return;
+  }
+
+  // Authenticated — show chrome + user name + maybe admin tab
+  gateEl.style.display = 'none';
+  document.querySelectorAll('.view').forEach(v => v.style.display = '');
+  userEl.textContent = CURRENT_USER.name;
+  userEl.classList.toggle('is-admin', !!CURRENT_USER.is_admin);
+  userEl.style.display = 'inline-flex';
+  tabAdminEl.style.display = CURRENT_USER.is_admin ? '' : 'none';
+}
+
+function resolveInitialView() {
+  // URL forms supported:
+  //   #admin            → admin view (if admin)
+  //   #admin?token=X    → admin view with token
+  //   #token=X&view=admin
+  //   #token=X          → user view
+  const hash = location.hash.replace(/^#/, '');
+  if (!hash) return 'user';
+  if (hash.startsWith('admin')) return 'admin';
+  const params = new URLSearchParams(hash);
+  if (params.get('view') === 'admin') return 'admin';
+  return 'user';
+}
+
+async function bootstrap() {
+  // Try to authenticate against the backend
+  try {
+    const { user } = await api('/me');
+    CURRENT_USER = user;
+  } catch {
+    CURRENT_USER = null;
+  }
+
+  applyAuthedUI();
+
+  if (!CURRENT_USER) return; // gate is shown; stop
+
+  // Load categories once authenticated so dropdowns + badges render correctly
+  await loadCategoriesCache();
+  populateTypeDropdown();
+
+  const initialView = resolveInitialView();
+  switchView(initialView);
+}
+
+// Hash changes (e.g. user clicks a different HA panel) — re-resolve the view
+window.addEventListener('hashchange', () => {
+  if (!CURRENT_USER) return;
+  switchView(resolveInitialView());
+});
+
+// Auto-refresh visible view every 15s
+setInterval(() => {
+  if (!CURRENT_USER) return;
+  if (document.getElementById('view-user').classList.contains('active')) loadUserIncidents();
+  if (document.getElementById('view-admin').classList.contains('active')) loadAdminIncidents();
+}, 15000);
+
+bootstrap();
+</script>
+</body>
+</html>

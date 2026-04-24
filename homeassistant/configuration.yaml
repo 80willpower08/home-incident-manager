@@ -1,0 +1,57 @@
+# Home Assistant integration snippets for HIM (Home Incident Manager).
+# Pick whichever pieces you need and paste into your HA configuration.yaml.
+#
+# Before using:
+# - Replace HIM_URL with the URL where HIM is reachable (e.g. https://incidents.example.com
+#   if you front it with a reverse proxy, or http://<docker-host-ip>:3069 on your LAN)
+# - If HA is served over HTTPS, iframes must also be HTTPS (browsers block mixed content)
+
+# ─── Option A: Sidebar iframe panels (older YAML-based approach) ───
+# Modern HA users may prefer creating "Webpage" dashboards in the HA UI instead.
+panel_iframe:
+  him_report:
+    title: "Report Issue"
+    url: "HIM_URL"                 # e.g. https://incidents.example.com/#token=<user_token>
+    icon: "mdi:alert-circle-outline"
+    require_admin: false
+
+  him_admin:
+    title: "Incident Ops"
+    url: "HIM_URL/#admin?token=<admin_token>"
+    icon: "mdi:shield-check"
+    require_admin: true
+
+# ─── Option B: REST command for HA automations to auto-file incidents ───
+rest_command:
+  him_create_incident:
+    url: "HIM_URL/api/incidents"
+    method: POST
+    headers:
+      Authorization: "Bearer HIM_TOKEN"   # a long-lived HA token belonging to an HA user
+      Content-Type: "application/json"
+    payload: >
+      {
+        "title": "{{ title }}",
+        "description": "{{ description | default('') }}",
+        "type": "{{ type }}",
+        "severity": "{{ severity | default('medium') }}",
+        "urgency": "{{ urgency | default('medium') }}",
+        "category": "{{ category | default('incident') }}"
+      }
+
+# Example automation: auto-file an incident when a camera goes offline
+# automation:
+#   - alias: "HIM: camera offline"
+#     trigger:
+#       platform: state
+#       entity_id: binary_sensor.front_door_camera
+#       to: "unavailable"
+#       for: "00:02:00"
+#     action:
+#       service: rest_command.him_create_incident
+#       data:
+#         title: "Front door camera offline"
+#         description: "Camera has been unavailable for 2+ minutes"
+#         type: "blueiris"
+#         severity: "medium"
+#         urgency: "high"

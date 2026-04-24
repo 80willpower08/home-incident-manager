@@ -1,0 +1,20 @@
+services:
+  incident-manager:
+    # Pulls pre-built image from Docker Hub. Uncomment `build: .` to build locally instead.
+    image: phnetsoftware/home-incident-manager:latest
+    # build: .
+    container_name: incident-manager
+    restart: unless-stopped
+    ports:
+      - "3069:3069"
+    env_file:
+      - .env
+    volumes:
+      # SQLite database + Claude CLI auth token both persist here
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:3069/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
