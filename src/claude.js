@@ -89,7 +89,7 @@ function collectPriorContext(db, incident) {
     const reasoning = incident.claude_reasoning ? `\n  Reasoning: ${incident.claude_reasoning}` : '';
     const confidence = incident.claude_confidence != null ? ` (confidence ${Math.round(incident.claude_confidence * 100)}%)` : '';
     context.push({
-      actor: 'Claude (previous eval)',
+      actor: 'AI (previous evaluation)',
       time: incident.updated_at,
       text: `Prior recommendation${confidence}: ${incident.claude_recommendation}${reasoning}`,
     });
@@ -121,7 +121,7 @@ async function evaluateIncident(incident) {
   // Update status to evaluating
   db.prepare("UPDATE incidents SET status = 'evaluating', updated_at = datetime('now') WHERE id = ?")
     .run(incident.id);
-  logAudit(incident.id, 'evaluation_started', 'claude', 'Claude is evaluating this incident');
+  logAudit(incident.id, 'evaluation_started', 'ai', 'AI is evaluating this incident');
 
   try {
     // Get policies for this incident type
@@ -186,13 +186,13 @@ async function evaluateIncident(incident) {
     logAudit(
       incident.id,
       'evaluation_complete',
-      'claude',
+      'ai',
       JSON.stringify(evaluation)
     );
 
     // If auto mode approved it, execute immediately (but don't conflate execution failures with evaluation failures)
     if (mode === 'auto' && evaluation.can_auto_resolve && evaluation.confidence >= 0.8) {
-      logAudit(incident.id, 'auto_approved', 'claude', `Auto-approved with confidence ${evaluation.confidence}`);
+      logAudit(incident.id, 'auto_approved', 'ai', `Auto-approved with confidence ${evaluation.confidence}`);
       try {
         await executeAction(incident, evaluation);
       } catch (execErr) {
@@ -230,7 +230,7 @@ async function evaluateIncident(incident) {
       WHERE id = ?
     `).run(`Evaluation failed: ${err.message}`, incident.id);
 
-    logAudit(incident.id, 'evaluation_failed', 'claude', err.message);
+    logAudit(incident.id, 'evaluation_failed', 'ai', err.message);
     throw err;
   }
 }

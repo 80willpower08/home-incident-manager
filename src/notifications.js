@@ -85,7 +85,7 @@ async function notifyEscalation(incident) {
 
 async function notifyAutoResolved(incident) {
   const title = `Auto-resolved: ${incident.title}`;
-  const msg = truncate(incident.resolution_notes || 'Claude handled this automatically.');
+  const msg = truncate(incident.resolution_notes || 'Auto-handled by the AI.');
   await sendHANotification(title, msg, HA_NOTIFY_ADMIN);
 }
 
