@@ -44,10 +44,15 @@ async function sendHANotification(title, message, target) {
 }
 
 /**
- * Look up the per-user notify target. Falls back to null (no notification).
+ * Look up the per-user notify target. Checks the users table first (for local accounts),
+ * then falls back to the settings table (for HA users / legacy configuration).
  */
 function getUserTarget(username) {
   if (!username) return null;
+  try {
+    const userRow = getDb().prepare('SELECT notify_target FROM users WHERE username = ? OR display_name = ?').get(username, username);
+    if (userRow?.notify_target) return userRow.notify_target;
+  } catch { /* users table might not exist in very old DBs */ }
   const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(`notify_target:${username}`);
   return row?.value || null;
 }

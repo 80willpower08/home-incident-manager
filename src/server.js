@@ -67,11 +67,15 @@ app.get('/api/me', (req, res) => {
   res.json({ user: req.user });
 });
 
+// Auth routes (login/logout/setup — these need to work without an authenticated user)
+app.use('/api/auth', require('./routes/auth'));
+
 // API Routes (each router applies its own requireAuth/requireAdmin as needed)
 app.use('/api/incidents', require('./routes/incidents'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/audit', require('./routes/audit'));
 app.use('/api/categories', require('./routes/categories'));
+app.use('/api/users', require('./routes/users'));
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
@@ -86,4 +90,14 @@ app.listen(PORT, '0.0.0.0', () => {
   // Start the background auto-escalation watcher
   require('./escalation').start();
   console.log('Escalation watcher started.');
+
+  // Log the active auth mode so users can verify their config
+  const { resolveMode } = require('./middleware/auth');
+  const mode = resolveMode();
+  const banner = {
+    none: '⚠️  AUTH_MODE=none — anonymous admin mode. Do NOT expose to the public internet.',
+    local: 'AUTH_MODE=local — built-in user accounts.',
+    ha: 'AUTH_MODE=ha — Home Assistant token validation.',
+  }[mode] || `AUTH_MODE=${mode}`;
+  console.log(banner);
 });

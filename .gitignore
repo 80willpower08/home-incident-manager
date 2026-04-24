@@ -38,3 +38,6 @@ desktop.ini
 /tmp/
 scratch/
 *.local.*
+
+# ─── Wiki content goes to a separate wiki repo, not the main repo ───
+wiki-content/

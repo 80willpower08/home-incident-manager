@@ -521,6 +521,7 @@ html:not([data-theme]) .theme-icon-light{display:block}
   </div>
   <div class="topbar-right">
     <span class="topbar-user" id="topbar-user"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn" onclick="logout()" style="display:none;padding:0.3rem 0.6rem">Logout</button>
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle light/dark">
       <svg class="theme-icon theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <svg class="theme-icon theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -529,13 +530,41 @@ html:not([data-theme]) .theme-icon-light{display:block}
   </div>
 </div>
 
-<!-- ── Unauthenticated gate ── -->
-<div class="auth-gate" id="auth-gate" style="display:none">
+<!-- ── Auth gate (HA mode — rendered when no valid HA token present) ── -->
+<div class="auth-gate" id="auth-gate-ha" style="display:none">
   <div class="auth-gate-card">
     <h2>Authentication required</h2>
-    <p>This app is accessed through your Home Assistant dashboard. It looks like you opened it directly.</p>
-    <p>Please use the <strong>Report Issue</strong> or <strong>Incident Ops</strong> dashboards inside Home Assistant.</p>
-    <p class="auth-gate-hint">If you're the admin setting this up, each household member needs a long-lived Home Assistant token. See your notes for the setup recipe.</p>
+    <p>This installation uses Home Assistant for authentication.</p>
+    <p>Please access HIM through the Home Assistant dashboard panel, which passes your token automatically.</p>
+    <p class="auth-gate-hint">If you're the admin, each household member needs a long-lived Home Assistant token appended to the iframe URL (<code>#token=...</code>). See <a href="https://github.com/80willpower08/home-incident-manager/wiki" style="color:var(--accent-cyan)">the wiki</a> for the setup recipe.</p>
+  </div>
+</div>
+
+<!-- ── Login screen (local mode) ── -->
+<div class="auth-gate" id="auth-gate-login" style="display:none">
+  <div class="auth-gate-card" style="max-width:380px">
+    <h2>Sign in</h2>
+    <form id="login-form" onsubmit="submitLogin(event)" style="display:flex;flex-direction:column;gap:0.75rem">
+      <input class="form-input" type="text" id="login-username" placeholder="Username" autocomplete="username" required autofocus>
+      <input class="form-input" type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-primary" type="submit" style="justify-content:center">Sign in</button>
+      <div id="login-error" style="font-size:0.8rem;color:var(--accent-red);min-height:1em"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ── First-run setup (local mode, no users yet) ── -->
+<div class="auth-gate" id="auth-gate-setup" style="display:none">
+  <div class="auth-gate-card" style="max-width:480px">
+    <h2>Welcome — create your admin account</h2>
+    <p>No users exist yet. Create the first admin account below. You can add more users from the Ops view once you're in.</p>
+    <form id="setup-form" onsubmit="submitSetup(event)" style="display:flex;flex-direction:column;gap:0.75rem;margin-top:1rem">
+      <input class="form-input" type="text" id="setup-username" placeholder="Username" autocomplete="username" required autofocus>
+      <input class="form-input" type="text" id="setup-display" placeholder="Display name (shown on incidents)">
+      <input class="form-input" type="password" id="setup-password" placeholder="Password (at least 8 characters recommended)" autocomplete="new-password" required minlength="4">
+      <button class="btn btn-primary" type="submit" style="justify-content:center">Create admin &amp; sign in</button>
+      <div id="setup-error" style="font-size:0.8rem;color:var(--accent-red);min-height:1em"></div>
+    </form>
   </div>
 </div>
 
@@ -706,6 +735,18 @@ html:not([data-theme]) .theme-icon-light{display:block}
         <div id="notify-targets-list"></div>
       </div>
     </div>
+    <div class="card" style="margin-bottom:1.5rem" id="users-card" style="display:none">
+      <div class="card-header">
+        <span>Users</span>
+        <button class="btn btn-ghost btn-sm" onclick="openUserEditor(null)">+ Add User</button>
+      </div>
+      <div class="card-body">
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5">
+          Manage local accounts (only shown when AUTH_MODE is <code>local</code>). Each user can submit incidents; admins can approve, deny, and manage settings.
+        </p>
+        <div id="users-list"></div>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:1.5rem">
       <div class="card-header">
         <span>Categories</span>
@@ -832,6 +873,42 @@ Include:
     </div>
   </div>
 
+  <!-- User Editor Modal -->
+  <div class="modal-overlay" id="user-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="user-modal-title">Add User</h3>
+        <button class="modal-close" onclick="closeUserModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Username (login)</label>
+          <input class="form-input" type="text" id="user-username" placeholder="e.g. amanda">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Display Name (shown on incidents)</label>
+          <input class="form-input" type="text" id="user-display" placeholder="e.g. Amanda">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password <span id="user-password-label" style="color:var(--text-muted);font-weight:normal"></span></label>
+          <input class="form-input" type="password" id="user-password" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notify Target (HA service, no <code>notify.</code> prefix)</label>
+          <input class="form-input" type="text" id="user-notify" placeholder="e.g. mobile_app_iphone">
+        </div>
+        <label style="font-size:0.85rem;display:flex;align-items:center;gap:0.4rem">
+          <input type="checkbox" id="user-admin"> Admin (can approve/deny, manage settings, manage users)
+        </label>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+          <button class="btn btn-ghost" onclick="closeUserModal()">Cancel</button>
+          <button class="btn btn-danger" id="user-delete-btn" onclick="deleteUserConfirm()" style="display:none">Delete</button>
+          <button class="btn btn-primary" onclick="saveUser()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Audit Panel -->
   <div class="admin-panel" id="panel-audit">
     <div class="card">
@@ -908,6 +985,7 @@ async function api(endpoint, options = {}) {
   if (AUTH_TOKEN) headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
   const res = await fetch(`${API}${endpoint}`, {
     headers,
+    credentials: 'same-origin',
     ...options,
   });
   if (!res.ok) {
@@ -981,7 +1059,7 @@ function switchAdminTab(tab) {
   document.querySelector(`.admin-tab[onclick*="${tab}"]`).classList.add('active');
   document.getElementById(`panel-${tab}`).classList.add('active');
   if (tab === 'dashboard') loadStats();
-  if (tab === 'settings') { loadSettings(); loadNotifyTargets(); }
+  if (tab === 'settings') { loadSettings(); loadNotifyTargets(); loadUsersAdmin(); }
   if (tab === 'audit') loadAuditLog();
   if (tab === 'queue') loadAdminIncidents();
 }
@@ -1620,6 +1698,102 @@ document.getElementById('category-modal').addEventListener('click', e => {
 document.getElementById('policy-modal').addEventListener('click', e => {
   if (e.target.classList.contains('modal-overlay')) closePolicyModal();
 });
+document.getElementById('user-modal').addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) closeUserModal();
+});
+
+// ── Users admin (only shown in AUTH_MODE=local) ──
+async function loadUsersAdmin() {
+  const card = document.getElementById('users-card');
+  if (AUTH_MODE !== 'local') {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+
+  try {
+    const { users } = await api('/users');
+    const list = document.getElementById('users-list');
+    if (!users.length) {
+      list.innerHTML = '<div class="empty-state">No users yet</div>';
+      return;
+    }
+    list.innerHTML = users.map(u => `
+      <div style="display:grid;grid-template-columns:1.5fr 1.5fr 100px auto;gap:0.75rem;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.8rem">${esc(u.username)} ${u.is_admin ? '<span style="color:var(--accent-purple);font-size:0.6rem;margin-left:4px">★ ADMIN</span>' : ''}</div>
+          <div style="font-size:0.7rem;color:var(--text-muted)">${esc(u.display_name || '—')}</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary)">${esc(u.notify_target || '—')}</div>
+        <div style="font-size:0.7rem;color:var(--text-muted)">${u.last_login_at ? 'last: ' + timeAgo(u.last_login_at) : 'never signed in'}</div>
+        <button class="btn btn-ghost btn-sm" onclick='openUserEditor(${JSON.stringify(u)})'>Edit</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function openUserEditor(user) {
+  document.getElementById('user-modal-title').textContent = user ? `Edit ${user.username}` : 'Add User';
+  document.getElementById('user-username').value = user?.username || '';
+  document.getElementById('user-username').readOnly = !!user;
+  document.getElementById('user-display').value = user?.display_name || '';
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-password-label').textContent = user ? '(leave blank to keep current)' : '(required)';
+  document.getElementById('user-notify').value = user?.notify_target || '';
+  document.getElementById('user-admin').checked = user ? !!user.is_admin : false;
+  document.getElementById('user-delete-btn').style.display = user ? '' : 'none';
+  document.getElementById('user-delete-btn').dataset.id = user?.id || '';
+  document.getElementById('user-modal').dataset.editingId = user?.id || '';
+  document.getElementById('user-modal').classList.add('active');
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal').classList.remove('active');
+}
+
+async function saveUser() {
+  const id = document.getElementById('user-modal').dataset.editingId;
+  const body = {
+    username: document.getElementById('user-username').value.trim(),
+    display_name: document.getElementById('user-display').value.trim(),
+    notify_target: document.getElementById('user-notify').value.trim() || null,
+    is_admin: document.getElementById('user-admin').checked,
+  };
+  const password = document.getElementById('user-password').value;
+  if (password) body.password = password;
+
+  try {
+    if (id) {
+      delete body.username;
+      await api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      toast('User updated');
+    } else {
+      if (!body.password) { toast('Password required for new user', 'error'); return; }
+      await api('/users', { method: 'POST', body: JSON.stringify(body) });
+      toast('User created');
+    }
+    closeUserModal();
+    loadUsersAdmin();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function deleteUserConfirm() {
+  const id = document.getElementById('user-delete-btn').dataset.id;
+  if (!id) return;
+  if (!confirm('Delete this user? All their active sessions will be revoked. Incidents they submitted remain.')) return;
+  try {
+    await api(`/users/${id}`, { method: 'DELETE' });
+    toast('User deleted');
+    closeUserModal();
+    loadUsersAdmin();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
 
 async function toggleMode(type, el) {
   const isNowAuto = !el.classList.contains('active');
@@ -1755,27 +1929,48 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ── Auth bootstrap ──
+let AUTH_MODE = null;
+
+function hideAllGates() {
+  ['auth-gate-ha', 'auth-gate-login', 'auth-gate-setup'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function showGate(id) {
+  hideAllGates();
+  document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+}
+
 function applyAuthedUI() {
   const userEl = document.getElementById('topbar-user');
-  const gateEl = document.getElementById('auth-gate');
   const tabAdminEl = document.getElementById('tab-admin');
+  const logoutBtn = document.getElementById('logout-btn');
 
   if (!CURRENT_USER) {
-    // Unauthenticated — hide the app, show the gate
-    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
-    gateEl.style.display = 'flex';
+    // Show the appropriate gate based on mode
     userEl.style.display = 'none';
     tabAdminEl.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (AUTH_MODE === 'local') {
+      showGate('auth-gate-login');
+    } else {
+      showGate('auth-gate-ha');
+    }
     return;
   }
 
   // Authenticated — show chrome + user name + maybe admin tab
-  gateEl.style.display = 'none';
+  hideAllGates();
   document.querySelectorAll('.view').forEach(v => v.style.display = '');
   userEl.textContent = CURRENT_USER.name;
   userEl.classList.toggle('is-admin', !!CURRENT_USER.is_admin);
   userEl.style.display = 'inline-flex';
   tabAdminEl.style.display = CURRENT_USER.is_admin ? '' : 'none';
+  if (logoutBtn) logoutBtn.style.display = (AUTH_MODE === 'local') ? '' : 'none';
 }
 
 function resolveInitialView() {
@@ -1793,7 +1988,19 @@ function resolveInitialView() {
 }
 
 async function bootstrap() {
-  // Try to authenticate against the backend
+  // Step 1: find out what auth mode the server is in
+  try {
+    const mode = await api('/auth/mode');
+    AUTH_MODE = mode.mode;
+    if (mode.mode === 'local' && mode.needs_setup) {
+      showGate('auth-gate-setup');
+      return;
+    }
+  } catch {
+    AUTH_MODE = 'ha'; // fallback assumption
+  }
+
+  // Step 2: try to authenticate
   try {
     const { user } = await api('/me');
     CURRENT_USER = user;
@@ -1811,6 +2018,65 @@ async function bootstrap() {
 
   const initialView = resolveInitialView();
   switchView(initialView);
+}
+
+// ── Login / setup / logout ──
+async function submitLogin(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        username: document.getElementById('login-username').value,
+        password: document.getElementById('login-password').value,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Login failed' }));
+      errEl.textContent = err.error;
+      return;
+    }
+    location.reload();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+}
+
+async function submitSetup(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('setup-error');
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        username: document.getElementById('setup-username').value,
+        display_name: document.getElementById('setup-display').value,
+        password: document.getElementById('setup-password').value,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Setup failed' }));
+      errEl.textContent = err.error;
+      return;
+    }
+    location.reload();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+}
+
+async function logout() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } catch {}
+  location.reload();
 }
 
 // Hash changes (e.g. user clicks a different HA panel) — re-resolve the view
