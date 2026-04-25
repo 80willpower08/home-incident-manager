@@ -312,18 +312,20 @@ html:not([data-theme]) .theme-icon-light{display:block}
 .incident-list{display:flex;flex-direction:column;gap:1px;background:var(--border)}
 .incident-row{
   display:grid;
-  grid-template-columns:50px 2fr 1fr 100px 80px 80px 120px 120px;
-  align-items:center;gap:0.75rem;
+  grid-template-columns:50px 2fr 1fr 1fr 90px 70px 70px 110px 110px;
+  align-items:center;gap:0.5rem;
   padding:0.65rem 1rem;
   background:var(--bg-surface);
   cursor:pointer;transition:background 0.15s;
   font-size:0.85rem;
 }
-.incident-submitter{
+.incident-submitter,.incident-assignee{
   font-family:var(--font-mono);font-size:0.72rem;
   color:var(--text-secondary);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+.incident-assignee.unassigned{color:var(--text-muted);font-style:italic}
+.incident-assignee.is-me{color:var(--accent-cyan)}
 .incident-row:hover{background:var(--bg-elevated)}
 .incident-row.header{
   font-family:var(--font-mono);font-size:0.65rem;font-weight:600;
@@ -500,7 +502,7 @@ html:not([data-theme]) .theme-icon-light{display:block}
 /* ── Responsive ── */
 @media(max-width:900px){
   .incident-row{grid-template-columns:40px 1.5fr 80px 70px 100px;font-size:0.8rem}
-  .incident-row > :nth-child(3),.incident-row > :nth-child(4),.incident-row > :nth-child(6){display:none}
+  .incident-row > :nth-child(3),.incident-row > :nth-child(4),.incident-row > :nth-child(5),.incident-row > :nth-child(7){display:none}
   .user-incident-row{grid-template-columns:1.5fr 80px 70px 100px;font-size:0.8rem}
   .user-incident-row > :nth-child(4){display:none}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
@@ -678,6 +680,11 @@ html:not([data-theme]) .theme-icon-light{display:block}
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+        <select class="filter-select" id="filter-assigned" onchange="loadAdminIncidents()">
+          <option value="">All Assignments</option>
+          <option value="me">Assigned to me</option>
+          <option value="none">Unassigned</option>
+        </select>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="loadAdminIncidents()">Refresh</button>
     </div>
@@ -688,6 +695,7 @@ html:not([data-theme]) .theme-icon-light{display:block}
           <div>ID</div>
           <div>Issue</div>
           <div>Submitted By</div>
+          <div>Assigned To</div>
           <div>Type</div>
           <div>Severity</div>
           <div>Urgency</div>
@@ -1129,9 +1137,11 @@ async function loadAdminIncidents() {
     const status = document.getElementById('filter-status')?.value;
     const type = document.getElementById('filter-type')?.value;
     const severity = document.getElementById('filter-severity')?.value;
+    const assigned = document.getElementById('filter-assigned')?.value;
     if (status) params.set('status', status);
     if (type) params.set('type', type);
     if (severity) params.set('severity', severity);
+    if (assigned) params.set('assigned_to', assigned);
 
     const { incidents } = await api(`/incidents?${params}`);
     const container = document.getElementById('admin-incident-list');
@@ -1141,18 +1151,24 @@ async function loadAdminIncidents() {
       return;
     }
 
-    container.innerHTML = incidents.map(inc => `
+    container.innerHTML = incidents.map(inc => {
+      const assignee = inc.assigned_to;
+      const isMe = assignee && CURRENT_USER && assignee === CURRENT_USER.name;
+      const assigneeCls = assignee ? (isMe ? 'is-me' : '') : 'unassigned';
+      const assigneeText = assignee || '— unassigned —';
+      return `
       <div class="incident-row" onclick="showDetail(${inc.id}, true)">
         <div class="incident-id">#${inc.id}</div>
         <div class="incident-title">${esc(inc.title)}</div>
         <div class="incident-submitter">${esc(inc.submitted_by || '—')}</div>
+        <div class="incident-assignee ${assigneeCls}">${esc(assigneeText)}</div>
         <div>${typeBadge(inc.type)}</div>
         <div>${sevBadge(inc.severity)}</div>
         <div>${sevBadge(inc.urgency)}</div>
         <div>${statBadge(inc.status)}</div>
         <div class="incident-time">${timeAgo(inc.created_at)}</div>
       </div>
-    `).join('');
+    `;}).join('');
   } catch (err) {
     toast('Failed to load incidents', 'error');
   }
@@ -1221,6 +1237,24 @@ async function showDetail(id, isAdmin = false) {
       const openStates = ['new', 'evaluating', 'recommended', 'approved', 'in_progress', 'escalated'];
       const canReevaluate = !['evaluating', 'in_progress'].includes(inc.status);
 
+      // Assignment controls — shown at the top so ownership is clear before taking action
+      const assigneeText = inc.assigned_to || 'Not assigned';
+      const isAssignedToMe = inc.assigned_to && CURRENT_USER && inc.assigned_to === CURRENT_USER.name;
+      html += `
+        <div class="detail-section">
+          <h4>Ownership</h4>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+            <div style="font-size:0.85rem;flex:1;min-width:140px">
+              Currently: <strong style="color:${inc.assigned_to ? (isAssignedToMe ? 'var(--accent-cyan)' : 'var(--text-primary)') : 'var(--text-muted)'}">${esc(assigneeText)}</strong>
+            </div>
+            <select class="filter-select" id="assign-dropdown-${inc.id}" style="min-width:160px"></select>
+            <button class="btn btn-ghost btn-sm" onclick="assignIncidentFromDropdown(${inc.id})">Assign</button>
+            ${!isAssignedToMe ? `<button class="btn btn-ghost btn-sm" onclick="assignIncident(${inc.id}, CURRENT_USER.name)">Take it</button>` : ''}
+            ${inc.assigned_to ? `<button class="btn btn-ghost btn-sm" onclick="assignIncident(${inc.id}, null)">Unassign</button>` : ''}
+          </div>
+        </div>
+      `;
+
       html += `<div class="detail-section" style="display:flex;gap:0.5rem;flex-wrap:wrap">`;
 
       // Approve/Deny only when Claude is waiting for approval
@@ -1268,6 +1302,7 @@ async function showDetail(id, isAdmin = false) {
       const userVisibleActions = new Set([
         'created', 'comment', 'approved', 'denied', 'resolved',
         'manually_closed', 'reopened', 'auto_escalated',
+        'assigned', 'unassigned',
       ]);
       const visibleAudit = isAdmin ? audit : audit.filter(a => userVisibleActions.has(a.action));
 
@@ -1292,6 +1327,11 @@ async function showDetail(id, isAdmin = false) {
 
     document.getElementById('modal-body').innerHTML = html;
     document.getElementById('detail-modal').classList.add('active');
+
+    // Populate assignee dropdown asynchronously (admin view only)
+    if (isAdmin) {
+      populateAssignDropdown(inc.id, inc.assigned_to);
+    }
   } catch (err) {
     toast('Failed to load details', 'error');
   }
@@ -1358,6 +1398,42 @@ async function reopenIncident(id) {
 // Ask Claude to reconsider, pulling in any unsaved note from the comment box.
 // Typical use: admin reads Claude's recommendation, adds clarifying context in the note
 // box (e.g. a specific domain), clicks Re-evaluate instead of Approve.
+// Populate the assignment dropdown for a just-rendered incident detail.
+// Called from showDetail after innerHTML is set.
+async function populateAssignDropdown(incidentId, currentAssignee) {
+  const select = document.getElementById(`assign-dropdown-${incidentId}`);
+  if (!select) return;
+  try {
+    const { assignees } = await api('/users/assignable');
+    select.innerHTML = '<option value="">— pick admin —</option>' +
+      assignees.map(a => `<option value="${esc(a.value)}" ${a.value === currentAssignee ? 'selected' : ''}>${esc(a.label)}</option>`).join('');
+  } catch (err) {
+    select.innerHTML = '<option value="">(failed to load)</option>';
+  }
+}
+
+async function assignIncidentFromDropdown(id) {
+  const select = document.getElementById(`assign-dropdown-${id}`);
+  const val = select?.value || '';
+  if (!val) { toast('Pick an admin first', 'error'); return; }
+  await assignIncident(id, val);
+}
+
+async function assignIncident(id, assignee) {
+  try {
+    await api(`/incidents/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ assigned_to: assignee }),
+    });
+    toast(assignee ? `Assigned to ${assignee}` : 'Unassigned');
+    // Re-render detail so the new state shows
+    showDetail(id, true);
+    loadAdminIncidents();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
 async function reevaluateIncident(id) {
   const box = document.getElementById(`comment-box-${id}`);
   const unsavedNote = (box?.value || '').trim();

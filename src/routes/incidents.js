@@ -8,13 +8,20 @@ router.use(requireAuth);
 
 // List incidents. Non-admin users only see their own submissions.
 router.get('/', (req, res) => {
-  const { status, type, category, submitted_by, limit = 50, offset = 0 } = req.query;
+  const { status, type, category, submitted_by, assigned_to, limit = 50, offset = 0 } = req.query;
   let query = 'SELECT * FROM incidents WHERE 1=1';
   const params = [];
 
   if (status) { query += ' AND status = ?'; params.push(status); }
   if (type) { query += ' AND type = ?'; params.push(type); }
   if (category) { query += ' AND category = ?'; params.push(category); }
+  if (assigned_to === 'me') {
+    query += ' AND assigned_to = ?'; params.push(req.user.name);
+  } else if (assigned_to === 'none') {
+    query += " AND (assigned_to IS NULL OR assigned_to = '')";
+  } else if (assigned_to) {
+    query += ' AND assigned_to = ?'; params.push(assigned_to);
+  }
 
   // Non-admins are scoped to their own incidents regardless of query param.
   // Admins can filter by submitted_by (or see everything if omitted).
@@ -246,7 +253,34 @@ router.post('/:id/reopen', requireAdmin, (req, res) => {
   res.json({ incident: updated });
 });
 
-// Re-evaluate with Claude, factoring in current admin comments + prior recommendations.
+// Assign an incident to a specific admin (or unassign by sending empty/null).
+router.post('/:id/assign', requireAdmin, (req, res) => {
+  const incident = getDb().prepare('SELECT * FROM incidents WHERE id = ?').get(req.params.id);
+  if (!incident) return res.status(404).json({ error: 'Incident not found' });
+
+  const assignee = (req.body.assigned_to || '').trim() || null;
+  getDb().prepare(`
+    UPDATE incidents SET assigned_to = ?, updated_at = datetime('now') WHERE id = ?
+  `).run(assignee, req.params.id);
+
+  const action = assignee ? 'assigned' : 'unassigned';
+  const details = assignee ? `to ${assignee}` : `previously ${incident.assigned_to || 'nobody'}`;
+  logAudit(incident.id, action, req.user.name, details);
+
+  // Notify the new assignee if they're not the one doing the assigning
+  if (assignee && assignee !== req.user.name) {
+    const notifications = require('../notifications');
+    const updated = getDb().prepare('SELECT * FROM incidents WHERE id = ?').get(req.params.id);
+    notifications.notifyAssigned(updated, assignee).catch(err => {
+      console.error('Assignment notification failed:', err.message);
+    });
+  }
+
+  const updated = getDb().prepare('SELECT * FROM incidents WHERE id = ?').get(req.params.id);
+  res.json({ incident: updated });
+});
+
+// Re-evaluate with AI, factoring in current admin comments + prior recommendations.
 // Works on any incident that's not already mid-evaluation or mid-action.
 router.post('/:id/reevaluate', requireAdmin, (req, res) => {
   const incident = getDb().prepare('SELECT * FROM incidents WHERE id = ?').get(req.params.id);

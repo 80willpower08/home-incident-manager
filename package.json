@@ -1,6 +1,6 @@
 {
   "name": "him-home-incident-manager",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "HIM — Home Incident Manager. AI-powered home ops incident management (Claude / OpenAI / Ollama / Gemini).",
   "main": "src/server.js",
   "scripts": {

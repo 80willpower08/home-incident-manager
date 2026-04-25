@@ -111,6 +111,17 @@ async function notifyUserDenied(incident) {
   await sendHANotification(title, msg, target);
 }
 
+async function notifyAssigned(incident, assigneeName) {
+  const target = getUserTarget(assigneeName);
+  if (!target) return;
+  const title = `Assigned: ${incident.title}`;
+  const msg = truncate(
+    `You've been assigned incident #${incident.id} · ${incident.type} · ${incident.severity}/${incident.urgency}` +
+    (incident.claude_recommendation ? ` · Recommendation: ${incident.claude_recommendation}` : '')
+  );
+  await sendHANotification(title, msg, target);
+}
+
 async function notifyUserCommented(incident, commenter, commentText) {
   // Don't notify if a user is commenting on their own incident
   if (commenter === incident.submitted_by) return;
@@ -139,4 +150,5 @@ module.exports = {
   notifyUserResolved,
   notifyUserDenied,
   notifyUserCommented,
+  notifyAssigned,
 };

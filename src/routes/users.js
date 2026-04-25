@@ -11,6 +11,48 @@ router.get('/', (req, res) => {
   res.json({ users: users.listUsers() });
 });
 
+// Assignable admins for the incident assignment dropdown.
+// In local mode: users table where is_admin=1.
+// In ha/none mode: derived from audit log of admin actions (since we don't have a user directory).
+// Always includes the current user so they can assign to themselves.
+router.get('/assignable', (req, res) => {
+  const { resolveMode } = require('../middleware/auth');
+  const { getDb } = require('../db');
+  const mode = resolveMode();
+  const seen = new Set();
+  const out = [];
+
+  if (mode === 'local') {
+    const admins = getDb().prepare(`
+      SELECT username, display_name FROM users WHERE is_admin = 1 ORDER BY display_name, username
+    `).all();
+    for (const a of admins) {
+      const label = a.display_name || a.username;
+      if (!seen.has(label)) { out.push({ value: label, label }); seen.add(label); }
+    }
+  } else {
+    // Derive from recent admin actions in audit log
+    const adminActions = ['approved', 'denied', 'manually_closed', 'reopened', 'reevaluate_requested', 'assigned', 'unassigned'];
+    const placeholders = adminActions.map(() => '?').join(',');
+    const rows = getDb().prepare(`
+      SELECT DISTINCT actor FROM audit_log
+      WHERE action IN (${placeholders})
+        AND actor NOT IN ('system', 'ai', 'claude', 'anonymous')
+      ORDER BY actor
+    `).all(...adminActions);
+    for (const r of rows) {
+      if (!seen.has(r.actor)) { out.push({ value: r.actor, label: r.actor }); seen.add(r.actor); }
+    }
+  }
+
+  // Always include the current user at the top
+  if (req.user?.name && !seen.has(req.user.name)) {
+    out.unshift({ value: req.user.name, label: `${req.user.name} (you)` });
+  }
+
+  res.json({ assignees: out });
+});
+
 router.post('/', async (req, res) => {
   try {
     const user = await users.createUser({
